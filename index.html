@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gomoku Game (CSE479 : 2020-3-60-073)</title>
+    <!-- favicon from of game controller emoji -->
+    <link rel="icon" href="https://em-content.zobj.net/thumbs/240/apple/325/video-game_1f3ae.png" type="image/png" sizes="16x16" /> 
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+      #infoCard {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 15px;
+        font-size: 18px;
+      }
+      #controls {
+        margin-bottom: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      #controls input {
+        padding: 5px;
+        text-align: center;
+      }
+      #boardContainer {
+        position: relative;
+        padding: 10px;
+        background-color: white;
+        border-radius: 8px;
+        min-width: 470px;
+        min-height: 470px;
+        box-sizing: content-box;
+        align-content: center;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      #board {
+        display: grid;
+        gap: 1px;
+        justify-content: center;
+      }
+      .cell {
+        width: 30px;
+        height: 30px;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        font-size: 18px;
+      }
+      #status {
+        margin-top: 15px;
+        font-size: 20px;
+        color: #222;
+        font-weight: bold;
+      }
+      #playBtn {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 6px;
+        background-color: #007bff;
+        color: white;
+      }
+      #restartOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(200, 200, 200, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        border-radius: 8px;
+        z-index: 2;
+      }
+      #restartBtn {
+        padding: 10px 20px;
+        font-size: 16px;
+        border: none;
+        border-radius: 6px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+      }
+
+      .game-over .cell {
+        pointer-events: none;
+      }
+      .player-config {
+        display: flex;
+        gap: 10px;
+      }
+      .player-config input {
+        width: 100px;
+      }
+      .sidebars {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        margin-bottom: 10px;
+      }
+      .left-sidebar {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border: 1px solid #ccc;
+        padding: 25px;
+        border-radius: 10px;
+        max-width: 250px;
+        margin-right: 10px;
+
+      }
+      .game-info {
+        font-size: 14px;
+        color: #555;
+        max-width: 1000%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Gomoku - Two Player</h1>
+    <div id="infoCard">
+      Round: <span id="round">1</span> &nbsp;&nbsp;|&nbsp;&nbsp;
+      <span id="playerXInfo">Player X</span> Wins:
+      <span id="xWins">0</span> &nbsp;&nbsp;|&nbsp;&nbsp;
+      <span id="playerOInfo">Player O</span> Wins: <span id="oWins">0</span>
+    </div>
+    <div class="sidebars">
+      <div class="left-sidebar">
+        <div id="controls">
+          Grid Size:
+          <input type="number" id="gridSize" min="5" max="20" value="15" />
+          <div class="player-config">
+            <div>
+              <input id="playerXName" placeholder="Player X Name" />
+              <input id="playerXEmoji" placeholder="X Emoji" maxlength="2" />
+            </div>
+            <div>
+              <input id="playerOName" placeholder="Player O Name" />
+              <input id="playerOEmoji" placeholder="O Emoji" maxlength="2" />
+            </div>
+          </div>
+        </div>
+        <button id="playBtn">Play</button>
+        <div id="status"></div>
+        
+        <!-- horizontal line here -->
+        <hr style="width: 100%; border: 1px solid #ccc; margin: 10px 0;" />
+
+        <div class="game-info">
+          <p>This is a two player based Gomoku game. Players can choose their own emoji and their name to begin with. </p>
+          <h4>CSE479 (Web Programming) 
+            <br>Lab Assignment 
+            <br>Spring - 2025<br>
+            <br>Md. Iftekhar Hossain Khan <br>(2020-3-60-073)<br>
+            <br>East West University<br>
+          </h4>
+        </div>
+      </div>
+
+      <div id="boardContainer">
+        <div id="board"></div>
+        <div id="restartOverlay">
+          <button id="restartBtn">Restart</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let boardSize = 15;
+      let currentPlayer = "X";
+      let gameStarted = false;
+      let board = [];
+      let round = 1;
+      let xWins = 0;
+      let oWins = 0;
+      let playerXEmoji = "X";
+      let playerOEmoji = "O";
+      let playerXName = "Player X";
+      let playerOName = "Player O";
+
+      const boardDiv = document.getElementById("board");
+      const boardContainer = document.getElementById("boardContainer");
+      const statusDiv = document.getElementById("status");
+      const playBtn = document.getElementById("playBtn");
+      const restartBtn = document.getElementById("restartBtn");
+      const restartOverlay = document.getElementById("restartOverlay");
+      const roundSpan = document.getElementById("round");
+      const xWinsSpan = document.getElementById("xWins");
+      const oWinsSpan = document.getElementById("oWins");
+      const gridSizeInput = document.getElementById("gridSize");
+      const playerXNameInput = document.getElementById("playerXName");
+      const playerONameInput = document.getElementById("playerOName");
+      const playerXEmojiInput = document.getElementById("playerXEmoji");
+      const playerOEmojiInput = document.getElementById("playerOEmoji");
+      const playerXInfo = document.getElementById("playerXInfo");
+      const playerOInfo = document.getElementById("playerOInfo");
+
+      playBtn.addEventListener("click", () => {
+        boardSize = Math.max(5, Math.min(30, parseInt(gridSizeInput.value)));
+        playerXEmoji = playerXEmojiInput.value || "X";
+        playerOEmoji = playerOEmojiInput.value || "O";
+        playerXName = playerXNameInput.value || "Player X";
+        playerOName = playerONameInput.value || "Player O";
+
+        playerXInfo.textContent = playerXName;
+        playerOInfo.textContent = playerOName;
+        startGame();
+      });
+
+      restartBtn.addEventListener("click", () => {
+        round++;
+        startGame();
+      });
+
+      function startGame() {
+        gameStarted = true;
+        currentPlayer = "X";
+        board = Array(boardSize)
+          .fill(null)
+          .map(() => Array(boardSize).fill(""));
+        boardDiv.innerHTML = "";
+        boardContainer.classList.remove("game-over");
+        restartOverlay.style.display = "none";
+        statusDiv.textContent = `${playerXName}'s turn (${playerXEmoji})`;
+        roundSpan.textContent = round;
+
+        boardDiv.style.gridTemplateColumns = `repeat(${boardSize}, 30px)`;
+        boardDiv.style.gridTemplateRows = `repeat(${boardSize}, 30px)`;
+
+        for (let row = 0; row < boardSize; row++) {
+          for (let col = 0; col < boardSize; col++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            cell.addEventListener("click", handleCellClick);
+            boardDiv.appendChild(cell);
+          }
+        }
+      }
+
+      function handleCellClick(e) {
+        if (!gameStarted) return;
+        const row = parseInt(e.target.dataset.row);
+        const col = parseInt(e.target.dataset.col);
+
+        if (board[row][col] !== "") return;
+
+        board[row][col] = currentPlayer;
+        e.target.textContent =
+          currentPlayer === "X" ? playerXEmoji : playerOEmoji;
+
+        if (checkWin(row, col, currentPlayer)) {
+          const winnerName = currentPlayer === "X" ? playerXName : playerOName;
+          statusDiv.textContent = `${winnerName} wins!`;
+          gameStarted = false;
+          boardContainer.classList.add("game-over");
+          restartOverlay.style.display = "flex";
+
+          if (currentPlayer === "X") {
+            xWins++;
+            xWinsSpan.textContent = xWins;
+          } else {
+            oWins++;
+            oWinsSpan.textContent = oWins;
+          }
+
+          return;
+        }
+
+        currentPlayer = currentPlayer === "X" ? "O" : "X";
+        const currentName = currentPlayer === "X" ? playerXName : playerOName;
+        const currentEmoji =
+          currentPlayer === "X" ? playerXEmoji : playerOEmoji;
+        statusDiv.textContent = `${currentName}'s turn (${currentEmoji})`;
+      }
+
+      function checkWin(row, col, player) {
+        return (
+          countInDirection(row, col, player, 1, 0) +
+            countInDirection(row, col, player, -1, 0) >=
+            4 ||
+          countInDirection(row, col, player, 0, 1) +
+            countInDirection(row, col, player, 0, -1) >=
+            4 ||
+          countInDirection(row, col, player, 1, 1) +
+            countInDirection(row, col, player, -1, -1) >=
+            4 ||
+          countInDirection(row, col, player, 1, -1) +
+            countInDirection(row, col, player, -1, 1) >=
+            4
+        );
+      }
+
+      function countInDirection(row, col, player, deltaRow, deltaCol) {
+        let count = 0;
+        let r = row + deltaRow;
+        let c = col + deltaCol;
+        while (
+          r >= 0 &&
+          r < boardSize &&
+          c >= 0 &&
+          c < boardSize &&
+          board[r][c] === player
+        ) {
+          count++;
+          r += deltaRow;
+          c += deltaCol;
+        }
+        return count;
+      }
+
+      // Auto-start the game with 15x15 board when page loads
+      window.addEventListener("load", () => {
+        startGame();
+      });
+    </script>
+  </body>
+</html>
